@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Client</title>
+</head>
+<body>
+    <h1>WebSocket Chat Client</h1>
+    <button id="connect">Connect to Server</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <br><br>
+
+    <label for="recipient">Recipient ID:</label>
+    <input type="text" id="recipient" placeholder="Enter recipient ID">
+    <br><br>
+
+    <label for="message">Message:</label>
+    <input type="text" id="message" placeholder="Type a message">
+    <button id="send" disabled>Send</button>
+    <br><br>
+
+    <div id="rawMessageDisplay"></div>
+
+    <h3>Messages:</h3>
+    <pre id="output"></pre>
+
+    <script>
+        let ws;
+
+        document.getElementById('connect').onclick = () => {
+            ws = new WebSocket('ws://127.0.0.1:8081');
+
+            ws.onopen = () => {
+                document.getElementById('output').textContent += "Connected to server\n";
+                document.getElementById('connect').disabled = true;
+                document.getElementById('disconnect').disabled = false;
+                document.getElementById('send').disabled = false;
+            };
+
+            ws.onmessage = (event) => {
+                const receivedMessage = event.data;
+                document.getElementById('rawMessageDisplay').textContent = `Your ${receivedMessage}`;
+                console.log("Received raw message:", receivedMessage);
+
+                
+                if (receivedMessage.startsWith("client_id:")) {
+                    const parts = receivedMessage.split(":");
+                    if (parts.length === 2) {
+                        clientId = parts[1]; 
+                        
+                        console.log("Received client ID:", clientId);
+                    }
+                } else {
+                    
+                    try {
+                        const message = JSON.parse(receivedMessage);
+                        if (message.client_id) {
+                            clientId = message.client_id;
+                            console.log("Received client ID:", clientId);
+                        }
+                    } catch (error) {
+                        console.error("Error parsing JSON:", error);
+                        document.getElementById('output').textContent += `Received: ${receivedMessage}\n`;
+                    }
+                }
+            };
+
+
+            ws.onclose = () => {
+                document.getElementById('output').textContent += "Disconnected from server\n";
+                document.getElementById('connect').disabled = false;
+                document.getElementById('disconnect').disabled = true;
+                document.getElementById('send').disabled = true;
+            };
+
+            ws.onerror = (error) => {
+                document.getElementById('output').textContent += `Error: ${error.message}\n`;
+            };
+        };
+
+        document.getElementById('disconnect').onclick = () => {
+            if (ws) {
+                ws.close();
+            }
+        };
+
+        document.getElementById('send').onclick = () => {
+            const recipient = document.getElementById('recipient').value;
+            const message = document.getElementById('message').value;
+
+            if (recipient && message) {
+                const chatMessage = {
+                    from: clientId,  
+                    to: recipient,
+                    message: message
+                };
+                ws.send(JSON.stringify(chatMessage));
+                document.getElementById('output').textContent += `Sent: ${JSON.stringify(chatMessage)}\n`;
+            } else {
+                alert("Please enter both recipient ID and message.");
+            }
+        };
+    </script>
+</body>
+</html>
